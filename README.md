@@ -1,13 +1,7 @@
 # 📊 HR Analytics Dashboard – Power BI  
 
-![Power BI](https://img.shields.io/badge/Tool-PowerBI-yellow)  
-![Project Type](https://img.shields.io/badge/Project-HR%20Analytics-blue)  
-![Status](https://img.shields.io/badge/Status-Completed-brightgreen)  
-
----
-
 ## 📌 Project Overview  
-This project focuses on analyzing employee attendance data to generate meaningful HR insights using **Power BI**.  
+This project focuses on analyzing employee attendance data to generate meaningful HR insights using **Power BI**.
 
 The dashboard helps HR teams and managers track:
 - Employee attendance patterns  
@@ -19,21 +13,26 @@ The dashboard helps HR teams and managers track:
 
 ## 🎯 Key Insights  
 
-✔️ Working preferences (WFH vs Office)  
-✔️ Attendance % (Weekly & Monthly)  
-✔️ Sick Leave (SL %)  
-✔️ Work From Home (WFH %)  
-✔️ Employee-level attendance trends  
+The dashboard is designed to identify:
+
+- **Working Preferences** (Office vs Work From Home)
+- **Attendance Percentage**
+  - Weekly and Monthly presence trends
+- **Sick Leave (SL) Percentage**
+- **WFH (Work From Home) Trends**
+- **Employee-level attendance patterns**
 
 ---
 
+## ⚙️ ETL Process (Power Query Transformation)
 ## 📂 Dataset  
 
 - Source: Excel Workbook  
 - Sheets:
   - `Apr 2022`  
   - `May 2022`  
-  - `June 2022`  
+  - `June 2022`
+  - `Attendence`  
 
 ---
 
@@ -41,101 +40,240 @@ The dashboard helps HR teams and managers track:
 
 ### 🔄 Data Transformation  
 
-1. Load Excel → Click **Transform Data**  
-2. Duplicate query  
-3. Select Employee Code & Name  
-4. Click **Unpivot Other Columns**  
+1. Load Data into **Power BI**
+  - Open Power BI → Get Data → Excel
+  - Click Transform Data (Do not directly load)
+2. Handle Multiple Sheets
+  - Since each sheet contains separate monthly data, transformation is required before merging.
+3. Unpivot Date Columns
+  - Problem: Dates are stored as columns
+  - Solution:
+    - Select Employee Code and Employee Name
+    - Click Unpivot Other Columns
+  - Resulting structure:
+  * Employee Code | Name | Date | Attendance Value
+4. Data Cleaning
+  - Convert Date column → Date datatype
+  - Remove errors (Right click → Remove Errors)
+  - Rename columns appropriately
 
 ---
 
-### 🧹 Data Cleaning  
+### 🔁 Dynamic Data Handling using Parameters  
 
-- Convert Date → Date datatype  
-- Remove errors  
-- Rename columns  
-
----
-
-### 🔁 Parameter Usage  
-
-- Create Parameter: `GetData`  
-- Use for dynamic filtering  
+- Create a Parameter:
+  - Name: GetData
+  - Value: e.g., Apr 2022
+- Use this parameter to filter sheet data dynamically instead of hardcoding sheet names. 
 
 ---
 
-### 🔧 Function Creation  
+### 🔧 Apply Transformations to All Sheets
 
-- Convert query to function  
-- Apply to all sheets  
+1. Duplicate query (April sheet)
+2. Apply all transformations
+3. Convert query into a Function
+4. Apply function to all sheets using:
+  - Add Column → Invoke Function 
 
 ---
 
 ### 🔗 Combine Data  
 
-- Append all sheets  
-- Final dataset:
+- Append all transformed sheets into a single dataset
+- Final dataset contains:
   - Employee Code  
   - Name  
   - Date  
-  - Attendance  
+  - Attendance Status As Value
 
 ---
 
-## 📐 Data Modeling  
+### 📤 Load Data
 
-### Measures vs Columns  
+- Click Close & Apply
+- Clean, structured dataset is now ready for analysis
+
+---
+
+## 📐 Data Modeling & Calculations
+
+### Measures vs Calculated Columns  
 
 | Feature | Measure | Column |
 |--------|--------|--------|
-| Calc Time | Interaction | Refresh |
-| Storage | No | Yes |
-| Use | Aggregations | Row logic |
+| Calculation Timing | During visualization interaction | During data refresh |
+| Storage | No physical storage | Stored in table |
+| File Size | No impact | Increases file size |
+| Use Case | Aggregations (%, totals) | Row-level logic |
 
 ---
 
-## 🧮 DAX  
+## 🧮 DAX Key Calculations
 
-### WFH Column  
+### Day of Week
 ```DAX
-WFH Value = IF('Table'[Attendance]="WFH",1,IF('Table'[Attendance]="HWFH",0.5,0))
+Day of Week = FORMAT('Final Data'[Date], "ddd")
 ```
 
-### Total Present Days  
+### Month
 ```DAX
-Total Present Days = COUNT('Table'[Attendance]) + SUM('Table'[WFH Value])
+Month = STARTOFMONTH('Final Data'[Date])
 ```
 
-### Presence %  
+### Total SL
 ```DAX
-Presence % = DIVIDE([Total Present Days],[Total Working Days])
+Total SL = SWITCH(TRUE(),
+    'Final Data'[Value] = "SL", 1,
+    'Final Data'[Value] = "HSL", 0.5,
+    0)
+```
+
+### Total WFH
+```DAX
+Total WFH = SWITCH(TRUE(),
+    'Final Data'[Value] = "WFH", 1,
+    'Final Data'[Value] = "HWFH", 0.5,
+    0)
+```
+
+### Presence %
+```DAX
+Presence % = DIVIDE([TotalPresentDays], [TotalWorkingDays],0)
+```
+
+### SL %
+```DAX
+SL % = DIVIDE([TotalSL], [TotalWorkingDays], 0)
+```
+
+### TotalPresentDays
+```DAX
+TotalPresentDays = 
+
+var PresentDays = CALCULATE(COUNT('Final Data'[Value]), 'Final Data'[Value] = "P")
+RETURN PresentDays + [TotalWFH]
+```
+
+### TotalSL
+```DAX
+TotalSL = SUM('Final Data'[Total SL])
+```
+
+### TotalWFH
+```DAX
+TotalWFH = SUM('Final Data'[Total WFH])
+```
+
+### TotalWorkingDays
+```DAX
+TotalWorkingDays = 
+
+var TotalDays = COUNT('Final Data'[Value])
+var TotalNonWorkingDays = CALCULATE(COUNT('Final Data'[Value]), 'Final Data'[Value] in {"WO","NO"})
+
+RETURN TotalDays - TotalNonWorkingDays
+```
+
+### WFH %
+```DAX
+WFH % = DIVIDE([TotalWFH], [TotalPresentDays], 0)
 ```
 
 ---
 
-## 📊 Dashboard  
-
-- KPI Cards  
-- Employee Table  
-- Attendance Matrix  
-- Trend Charts  
-- Month Slicer  
-- Day-wise Analysis  
-
----
-
-## 🔐 Row-Level Security  
-
-- Employees → Limited access  
-- Managers → Full access  
+## 📅 Date Enhancements
+- Create Month Column for filtering
+- Avoid using FORMAT() (returns text)
+- Use:
+  - STARTOFMONTH
+  - ENDOFMONTH
+  - EOMONTH
+    👉 Ensures proper date sorting
 
 ---
 
-## 🚀 Tools  
+## 📊 Dashboard Design
 
-- Power BI  
-- DAX  
-- Power Query  
-- Excel  
+### 🧾 Summary Cards
+- Presence %
+- WFH %
+- Sick Leave %
+
+---
+
+### 📋 Employee Table
+
+Displays:
+` Employee Name
+- Presence %
+- WFH %
+- SL %
+
+---
+
+### 🔍 Attendance Matrix
+- Rows: Employee Name
+- Columns: Date
+- Values: Attendance Status
+
+👉 Helps verify daily attendance
+
+---
+
+### 📈 Trend Analysis (Line Charts)
+- Presence % over time
+- WFH % trend
+- SL % trend
+
+---
+
+### 📅 Slicer
+- Month-based filtering
+- Enables trend comparison across months
+
+---
+
+### 📆 Day-wise Analysis
+- Create Day of Week column
+- Table showing:
+- Day
+- Presence %
+- WFH %
+- SL %
+
+---
+## 🔐 Data Security (Row-Level Security)
+
+To restrict access:
+` Implement **Row-Level Security (RLS)**
+**Use Case:**
+- Employees see only their own data
+- Managers see full dataset
+
+👉 Can create:
+
+- Manager Dashboard (Full Access)
+- Employee Dashboard (Restricted Access)
+
+---
+
+## 📌 Conclusion
+
+This HR Analytics dashboard provides:
+
+- Clear visibility into employee attendance behavior
+- Insights into work preferences (WFH vs Office)
+- Data-driven decision-making for HR teams
+
+---
+
+## 🚀 Tools Used
+
+- Power BI
+- Power Query (ETL)
+- DAX (Data Analysis Expressions)
+- Excel (Data Source)
 
 ---
 
@@ -145,5 +283,3 @@ GitHub: https://github.com/manishalinguntla2808
 LinkedIn: https://www.linkedin.com/in/manisha-linguntla/  
 
 ---
-
-⭐ Star this repo if you like it!
